@@ -1,0 +1,100 @@
+local player = game.Players.LocalPlayer
+local lighting = game:GetService("Lighting")
+local VirtualUser = game:GetService("VirtualUser")
+
+-- Tạo GUI
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+
+-- Tạo menu chính
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 150, 0, 80)  -- Menu nhỏ
+frame.Position = UDim2.new(0.5, -75, 0.5, -40)  -- Đặt ở giữa màn hình
+frame.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)  -- Màu xám nhạt
+frame.BorderSizePixel = 0
+
+-- Tạo nút bật/tắt
+local toggleButton = Instance.new("TextButton", frame)
+toggleButton.Size = UDim2.new(0, 100, 0, 50)
+toggleButton.Position = UDim2.new(0.5, -50, 0.5, -25)
+toggleButton.Text = "OFF click"
+toggleButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)  -- Màu xám
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+
+-- Tạo nút xóa
+local deleteButton = Instance.new("TextButton", frame)
+deleteButton.Size = UDim2.new(0, 20, 0, 20)
+deleteButton.Position = UDim2.new(0, 0, 0, 0)
+deleteButton.Text = "X"
+deleteButton.BackgroundColor3 = Color3.new(1, 0, 0)  -- Màu đỏ
+deleteButton.TextColor3 = Color3.new(1, 1, 1)
+
+-- Biến để theo dõi trạng thái bật/tắt
+local isClickingEnabled = false
+
+-- Hàm click giữa màn hình
+local function clickMiddleScreen()
+    local viewportSize = game.Workspace.CurrentCamera.ViewportSize
+    local middleScreen = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+    
+    -- Mô phỏng click liên tục khi được bật
+    while isClickingEnabled do
+        VirtualUser:ClickButton1(Vector2.new(middleScreen.X, middleScreen.Y))
+        wait(0.1)  -- Khoảng thời gian giữa các lần click
+    end
+end
+
+-- Nút bật/tắt
+toggleButton.MouseButton1Click:Connect(function()
+    isClickingEnabled = not isClickingEnabled
+    if isClickingEnabled then
+        toggleButton.Text = "ON click"
+        toggleButton.BackgroundColor3 = Color3.new(0, 0.8, 0)  -- Xanh khi bật
+        -- Bắt đầu click liên tục
+        spawn(clickMiddleScreen)
+    else
+        toggleButton.Text = "OFF click"
+        toggleButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)  -- Màu xám khi tắt
+    end
+end)
+
+-- Nút xóa
+deleteButton.MouseButton1Click:Connect(function()
+    frame:Destroy()  -- Xóa menu
+end)
+
+-- Tính năng di chuyển menu bằng chuột
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        updateInput(input)
+    end
+end)
