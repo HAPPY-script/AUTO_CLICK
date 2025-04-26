@@ -1,100 +1,76 @@
-local player = game.Players.LocalPlayer
-local lighting = game:GetService("Lighting")
-local VirtualUser = game:GetService("VirtualUser")
+-- 📦 Services
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
--- Tạo GUI
+local player = Players.LocalPlayer
+
+-- 🟢 Trạng thái AutoClick
+local autoClicking = false
+local autoClickThread = nil
+
+-- 📜 Hàm AutoClick
+local function autoClickLoop()
+    while autoClicking do
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        task.wait(0.1)
+    end
+end
+
+-- 🖼️ GUI
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.ResetOnSpawn = false
 
--- Tạo menu chính
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 150, 0, 80)  -- Menu nhỏ
-frame.Position = UDim2.new(0.5, -75, 0.5, -40)  -- Đặt ở giữa màn hình
-frame.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)  -- Màu xám nhạt
+frame.Size = UDim2.new(0, 160, 0, 70)
+frame.Position = UDim2.new(0.5, -80, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
 
--- Tạo nút bật/tắt
-local toggleButton = Instance.new("TextButton", frame)
-toggleButton.Size = UDim2.new(0, 100, 0, 50)
-toggleButton.Position = UDim2.new(0.5, -50, 0.5, -25)
-toggleButton.Text = "OFF click"
-toggleButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)  -- Màu xám
-toggleButton.TextColor3 = Color3.new(1, 1, 1)
+-- Nút ON/OFF
+local toggle = Instance.new("TextButton", frame)
+toggle.Size = UDim2.new(0.65, 0, 0.6, 0)
+toggle.Position = UDim2.new(0.05, 0, 0.2, 0)
+toggle.Text = "OFF"
+toggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+toggle.TextColor3 = Color3.new(1,1,1)
+toggle.Font = Enum.Font.SourceSansBold
+toggle.TextScaled = true
 
--- Tạo nút xóa
-local deleteButton = Instance.new("TextButton", frame)
-deleteButton.Size = UDim2.new(0, 20, 0, 20)
-deleteButton.Position = UDim2.new(0, 0, 0, 0)
-deleteButton.Text = "X"
-deleteButton.BackgroundColor3 = Color3.new(1, 0, 0)  -- Màu đỏ
-deleteButton.TextColor3 = Color3.new(1, 1, 1)
+-- Nút X
+local close = Instance.new("TextButton", frame)
+close.Size = UDim2.new(0.25, 0, 0.4, 0)
+close.Position = UDim2.new(0.7, 0, 0.3, 0)
+close.Text = "X"
+close.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+close.TextColor3 = Color3.new(1,1,1)
+close.Font = Enum.Font.SourceSansBold
+close.TextScaled = true
 
--- Biến để theo dõi trạng thái bật/tắt
-local isClickingEnabled = false
+-- 🎮 Điều khiển ON/OFF
+toggle.MouseButton1Click:Connect(function()
+    autoClicking = not autoClicking
+    toggle.Text = autoClicking and "ON" or "OFF"
+    toggle.BackgroundColor3 = autoClicking and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
 
--- Hàm click giữa màn hình
-local function clickMiddleScreen()
-    local viewportSize = game.Workspace.CurrentCamera.ViewportSize
-    local middleScreen = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-    
-    -- Mô phỏng click liên tục khi được bật
-    while isClickingEnabled do
-        VirtualUser:ClickButton1(Vector2.new(middleScreen.X, middleScreen.Y))
-        wait(0.1)  -- Khoảng thời gian giữa các lần click
-    end
-end
-
--- Nút bật/tắt
-toggleButton.MouseButton1Click:Connect(function()
-    isClickingEnabled = not isClickingEnabled
-    if isClickingEnabled then
-        toggleButton.Text = "ON click"
-        toggleButton.BackgroundColor3 = Color3.new(0, 0.8, 0)  -- Xanh khi bật
-        -- Bắt đầu click liên tục
-        spawn(clickMiddleScreen)
+    if autoClicking then
+        autoClickThread = task.spawn(autoClickLoop)
     else
-        toggleButton.Text = "OFF click"
-        toggleButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)  -- Màu xám khi tắt
+        if autoClickThread then
+            task.cancel(autoClickThread)
+            autoClickThread = nil
+        end
     end
 end)
 
--- Nút xóa
-deleteButton.MouseButton1Click:Connect(function()
-    frame:Destroy()  -- Xóa menu
-end)
-
--- Tính năng di chuyển menu bằng chuột
-local dragging
-local dragInput
-local dragStart
-local startPos
-
-local function updateInput(input)
-    local delta = input.Position - dragStart
-    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-
-frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
+-- ❌ Nút X tắt GUI + ngắt loop
+close.MouseButton1Click:Connect(function()
+    autoClicking = false
+    if autoClickThread then
+        task.cancel(autoClickThread)
+        autoClickThread = nil
     end
-end)
-
-frame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
-
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
-        updateInput(input)
-    end
+    gui:Destroy()
 end)
